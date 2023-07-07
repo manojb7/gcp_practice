@@ -1,0 +1,64 @@
+pipeline {
+  agent any
+  
+  environment {
+    GCP_PROJECT = 'your-gcp-project'
+    GCP_CREDENTIALS = credentials('your-gcp-service-account-credentials')
+    VM_NAME = 'your-vm-name'
+    VM_ZONE = 'your-vm-zone'
+    VG_NAME = 'your-vg-name'
+    LV_NAME = 'your-lv-name'
+    LV_SIZE = '10G'
+  }
+  
+  stages {
+    stage('Create VM') {
+      steps {
+        script {
+          // Install the Google Compute Engine Plugin
+          def gce = Jenkins.instance.getExtensionList('org.jenkinsci.plugins.googlecomputeengine.GoogleComputeEngineBuilder')[0]
+          
+          // Create the GCE instance
+          gce.createInstance(
+            project: GCP_PROJECT,
+            credentialsId: GCP_CREDENTIALS.id,
+            zone: VM_ZONE,
+            instanceName: VM_NAME,
+            machineType: 'f1-micro',
+            bootDiskAutoDelete: true,
+            bootDiskSourceImage: 'projects/debian-cloud/global/images/family/debian-9',
+            network: 'default',
+            preemptible: false,
+            cleanupJobWaitTime: 5
+          )
+        }
+      }
+    }
+    
+    stage('Configure LVM') {
+      steps {
+        script {
+          // Install LVM packages in the VM
+          sh "gcloud compute ssh --project ${GCP_PROJECT} --zone ${VM_ZONE} ${VM_NAME} -- 'sudo apt-get update && sudo apt-get install -y lvm2'"
+          
+          // Create the physical volume (PV)
+          sh "gcloud compute ssh --project ${GCP_PROJECT} --zone ${VM_ZONE} ${VM_NAME} -- 'sudo pvcreate /dev/sdb'"
+          
+          // Create the volume group (VG)
+          sh "gcloud compute ssh --project ${GCP_PROJECT} --zone ${VM_ZONE} ${VM_NAME} -- 'sudo vgcreate ${VG_NAME} /dev/sdb'"
+          
+          // Create the logical volume (LV)
+          sh "gcloud compute ssh --project ${GCP_PROJECT} --zone ${VM_ZONE} ${VM_NAME} -- 'sudo lvcreate -L ${LV_SIZE} -n ${LV_NAME} ${VG_NAME}'"
+          
+          // Format the LV with a filesystem (e.g., ext4)
+          sh "gcloud compute ssh --project ${GCP_PROJECT} --zone ${VM_ZONE} ${VM_NAME} -- 'sudo mkfs.ext4 /dev/${VG_NAME}/${LV_NAME}'"
+          
+          // Mount the LV to a directory
+          sh "gcloud compute ssh --project ${GCP_PROJECT} --zone ${VM_ZONE} ${VM_NAME} -- 'sudo mkdir /mnt/${LV_NAME}'"
+          sh "gcloud compute ssh --project ${GCP_PROJECT} --zone ${VM_ZONE} ${VM_NAME} -- 'sudo mount /dev/${VG_NAME}/${LV_NAME} /mnt/${LV_NAME}'"
+        }
+      }
+    }
+  }
+}
+
