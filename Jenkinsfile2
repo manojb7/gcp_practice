@@ -25,5 +25,5 @@ post {
   changed{
     echo "ONLY IF STATUS CHANGED"
   }
-}
+} #last post message
 }
