@@ -7,7 +7,7 @@ pipeline{
             }
         }
     }
-}
+
 
 post {
   always {
@@ -25,4 +25,5 @@ post {
   changed{
     echo "ONLY IF STATUS CHANGED"
   }
+}
 }
