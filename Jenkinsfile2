@@ -1,0 +1,28 @@
+pipeline{
+    agent any
+    stages {
+        stage ('test') {
+            steps {
+                sh 'whoami'
+            }
+        }
+    }
+}
+
+post {
+  always {
+    echo "ALWAYS"
+  }
+  success {
+    echo "ONLY ON SUCCES"
+  }
+  failure {
+    echo "ONLY ON FAILURE"
+  }
+  unstable {
+    echo "ONLY IF RUN IS UNSTABLE"
+  }
+  changed{
+    echo "ONLY IF STATUS CHANGED"
+  }
+}
